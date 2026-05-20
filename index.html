@@ -214,8 +214,16 @@ nav {
 /* teoria */
 .tblock {
   background:var(--bg3); border:1px solid var(--b0); border-left:3px solid var(--pur2);
-  padding:24px; margin-bottom:20px;
+  padding:24px; margin-bottom:20px; position:relative;
 }
+.del-btn {
+  position:absolute; top:10px; right:12px;
+  background:transparent; border:1px solid rgba(192,57,43,.3); color:var(--td);
+  font-size:11px; line-height:1; padding:3px 7px; cursor:pointer;
+  font-family:'Oswald',sans-serif; letter-spacing:1px;
+  transition:border-color .2s, color .2s;
+}
+.del-btn:hover { border-color:var(--red2); color:var(--red2); }
 .tblock.red { border-left-color:var(--red); }
 .ttag { display:inline-block; font-size:8px; letter-spacing:2px; text-transform:uppercase; padding:2px 9px; background:rgba(108,52,131,.18); color:var(--pur2); border:1px solid rgba(108,52,131,.35); margin-bottom:12px; }
 .ttag.red { background:rgba(192,57,43,.12); color:var(--red2); border-color:rgba(192,57,43,.3); }
@@ -253,7 +261,7 @@ nav {
 }
 .nsubmit:hover { background:var(--tea); color:#000; }
 .nlist { display:flex; flex-direction:column; }
-.nitem { border-bottom:1px solid var(--b0); padding:24px 0; }
+.nitem { border-bottom:1px solid var(--b0); padding:24px 0; position:relative; }
 .nitem:first-child { border-top:1px solid var(--b0); }
 .nmeta { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
 .ntag { font-size:8px; letter-spacing:2px; text-transform:uppercase; padding:2px 9px; border:1px solid; }
@@ -829,13 +837,13 @@ footer { border-top:1px solid var(--b0); padding:20px; text-align:center; font-f
   }, {capture:false});
 
   /* ---- JSONBIN — persistência compartilhada ---- */
-  var BIN_ID  = '6a0e0db4ee5a733b12f0e1e7';
+  var BIN_ID  = '6a0e1a816877513b27a604cf';
   var BIN_URL = 'https://api.jsonbin.io/v3/b/' + BIN_ID;
   var BIN_KEY = '$2a$10$eDpp3N3wEGEelTPJ2Eh9E.ThpfvX7q.ZlZmo8zyz5rAFPLDrChUp6';
   var binData = { noticias: [], teorias: [] };
 
   function fetchBin(callback){
-    fetch(BIN_URL + '/latest', { headers: { 'X-Access-Key': BIN_KEY } })
+    fetch(BIN_URL + '/latest', { headers: { 'X-Master-Key': BIN_KEY } })
       .then(function(r){ return r.json(); })
       .then(function(json){ binData = json.record || { noticias:[], teorias:[] }; callback(binData); })
       .catch(function(){ callback(binData); });
@@ -844,7 +852,7 @@ footer { border-top:1px solid var(--b0); padding:20px; text-align:center; font-f
   function saveBin(callback){
     fetch(BIN_URL, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'X-Access-Key': BIN_KEY },
+      headers: { 'Content-Type': 'application/json', 'X-Master-Key': BIN_KEY },
       body: JSON.stringify(binData)
     }).then(function(){ if(callback) callback(); })
       .catch(function(e){ alert('Erro ao salvar: ' + e.message); });
@@ -853,14 +861,24 @@ footer { border-top:1px solid var(--b0); padding:20px; text-align:center; font-f
   /* ---- TEORIA ADD ---- */
   var tagLabels = {c:'Classificado',l:'Vazamento',k:'Confirmado',r:'Rumor'};
 
-  function addTeoria(entry){
+  function addTeoria(entry, idx){
     var div = document.createElement('div');
     div.className = 'tblock';
     div.dataset.saved = '1';
     div.dataset.title = entry.title;
     div.dataset.text  = entry.text;
-    div.innerHTML = '<div class="ttag">Entrada</div><h3>'+entry.title+'</h3>'
+    div.innerHTML = '<button class="del-btn" title="Excluir entrada">✕</button>'
+      + '<div class="ttag">Entrada</div><h3>'+entry.title+'</h3>'
       + entry.text.split('\n').filter(Boolean).map(function(l){ return '<p>'+l+'</p>'; }).join('');
+    div.querySelector('.del-btn').addEventListener('click', function(e){
+      e.stopPropagation();
+      var senha = prompt('🔒 Senha para excluir:');
+      if(senha !== '666'){ alert('⛔ Senha incorreta.'); return; }
+      if(!confirm('Excluir esta teoria?')) return;
+      var i = Array.from(document.querySelectorAll('#teo-entries .tblock[data-saved]')).indexOf(div);
+      binData.teorias.splice(i, 1);
+      saveBin(function(){ div.remove(); });
+    });
     document.getElementById('teo-entries').appendChild(div);
     div.scrollIntoView({behavior:'smooth'});
   }
@@ -888,10 +906,20 @@ footer { border-top:1px solid var(--b0); padding:20px; text-align:center; font-f
     item.dataset.saved = '1';
     item.dataset.title = d.title; item.dataset.body = d.body;
     item.dataset.date  = d.date || ''; item.dataset.tag = d.tag; item.dataset.link = d.link || '';
-    item.innerHTML = '<div class="nmeta"><span class="ntag '+d.tag+'">'+tagLabels[d.tag]+'</span><span class="ndate">'+ds+'</span></div>'
+    item.innerHTML = '<button class="del-btn" title="Excluir notícia">✕</button>'
+      +'<div class="nmeta"><span class="ntag '+d.tag+'">'+tagLabels[d.tag]+'</span><span class="ndate">'+ds+'</span></div>'
       +'<div class="ntitle">'+d.title+'</div>'
       +'<p class="nexcerpt">'+d.body+'</p>'
       +(d.link?'<a class="nlink" href="'+d.link+'" target="_blank">↗ Acessar Fonte</a>':'');
+    item.querySelector('.del-btn').addEventListener('click', function(e){
+      e.stopPropagation();
+      var senha = prompt('🔒 Senha para excluir:');
+      if(senha !== '666'){ alert('⛔ Senha incorreta.'); return; }
+      if(!confirm('Excluir esta notícia?')) return;
+      var i = Array.from(document.querySelectorAll('#nlist .nitem[data-saved]')).indexOf(item);
+      binData.noticias.splice(i, 1);
+      saveBin(function(){ item.remove(); });
+    });
     var list = document.getElementById('nlist');
     if(prepend) list.insertBefore(item, list.firstChild);
     else list.insertBefore(item, list.firstChild);
